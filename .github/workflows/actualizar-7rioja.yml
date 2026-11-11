@@ -4,7 +4,7 @@ name: Actualizar 7 Rioja TV
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '*/30 * * * *'
 
 permissions:
   contents: write
@@ -50,7 +50,7 @@ jobs:
               if f.get("url")
           }
 
-          video = formats["hls-3"]
+          video = formats["hls-4"]
           audio = formats["hls-group_A2-und"]
 
           playlist = (
@@ -59,8 +59,8 @@ jobs:
               '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",'
               'NAME="Espanol",DEFAULT=YES,AUTOSELECT=YES,'
               f'URI="{audio}"\n'
-              "#EXT-X-STREAM-INF:BANDWIDTH=2500000,"
-              'RESOLUTION=1280x720,CODECS="avc1.64001f,mp4a.40.2",'
+              "#EXT-X-STREAM-INF:BANDWIDTH=6500000,"
+              'RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",'
               'AUDIO="audio"\n'
               f"{video}\n"
           )
