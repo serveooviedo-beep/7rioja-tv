@@ -38,8 +38,8 @@ jobs:
           comando = [
               "yt-dlp",
               "--no-config",
-              "-f", "hls-4+hls-group_A2-und",
-              "-g",
+              "--verbose",
+              "-F",
               origen
           ]
 
@@ -50,7 +50,9 @@ jobs:
               check=False,
               timeout=120
           )
-
+          ("FORMATOS DISPONIBLES EN GITHUB:")
+          print(resultado.stdout, flush=True)
+          print(resultado.stderr, flush=True)
           if resultado.returncode != 0:
               print("ERROR ORIGINAL DE YT-DLP:")
               print(resultado.stderr, flush=True)
