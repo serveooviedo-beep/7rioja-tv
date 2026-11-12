@@ -30,46 +30,69 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
-          import json
           import subprocess
+          from pathlib import Path
 
-          url = "https://www.dailymotion.com/video/x8dhao1"
+          origen = "https://www.dailymotion.com/video/x8dhao1"
 
-          result = subprocess.run(
-              ["yt-dlp", "--no-config", "--dump-single-json",
-               "--skip-download", url],
+          comando = [
+              "yt-dlp",
+              "--no-config",
+              "-f", "hls-4+hls-group_A2-und",
+              "-g",
+              origen
+          ]
+
+          resultado = subprocess.run(
+              comando,
               capture_output=True,
               text=True,
               check=True,
+              timeout=120
           )
 
-          data = json.loads(result.stdout)
-          formats = {
-              f["format_id"]: f["url"]
-              for f in data["formats"]
-              if f.get("url")
-          }
+          urls = [
+              linea.strip()
+              for linea in resultado.stdout.splitlines()
+              if linea.strip().startswith("https://")
+          ]
 
-          video = formats["hls-4"]
-          audio = formats["hls-group_A2-und"]
+          video = next(
+              (url for url in urls if "live-h264-1080.m3u8" in url),
+              None
+          )
+
+          audio = next(
+              (url for url in urls if "live-aac-128.m3u8" in url),
+              None
+          )
+
+          if not video or not audio:
+              raise RuntimeError(
+                  "No se encontraron las pistas de video y audio"
+              )
 
           playlist = (
               "#EXTM3U\n"
               "#EXT-X-VERSION:6\n"
               '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",'
-              'NAME="Espanol",DEFAULT=YES,AUTOSELECT=YES,'
+              'NAME="Espanol",LANGUAGE="es",'
+              'DEFAULT=YES,AUTOSELECT=YES,'
               f'URI="{audio}"\n'
               "#EXT-X-STREAM-INF:BANDWIDTH=6500000,"
-              'RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",'
+              'RESOLUTION=1920x1080,'
+              'CODECS="avc1.640028,mp4a.40.2",'
               'AUDIO="audio"\n'
               f"{video}\n"
           )
 
-          with open("7Rioja_master.m3u8", "w",
-                    encoding="utf-8", newline="\n") as file:
-              file.write(playlist)
+          Path("7Rioja_master.m3u8").write_text(
+              playlist,
+              encoding="utf-8"
+          )
 
-          print("Manifiesto M3U8 generado correctamente")
+          print("M3U8 generado correctamente")
+          print("Video 1080p y audio AAC detectados")
           PY
 
       - name: Publicar cambios
@@ -77,7 +100,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add 7Rioja_master.m3u8
+
           if git diff --cached --quiet; then
             echo "No hay cambios"
           else
