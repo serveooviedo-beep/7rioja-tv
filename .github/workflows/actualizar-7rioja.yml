@@ -47,10 +47,16 @@ jobs:
               comando,
               capture_output=True,
               text=True,
-              check=True,
+              check=False,
               timeout=120
           )
 
+          if resultado.returncode != 0:
+              print("ERROR ORIGINAL DE YT-DLP:")
+              print(resultado.stderr, flush=True)
+              raise RuntimeError(
+                  f"yt-dlp terminó con código {resultado.returncode}"
+              )
           urls = [
               linea.strip()
               for linea in resultado.stdout.splitlines()
