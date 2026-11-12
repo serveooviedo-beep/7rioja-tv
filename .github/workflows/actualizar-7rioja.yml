@@ -1,10 +1,10 @@
 
-name: Actualizar 7 Rioja TV HLS2
+name: Actualizar 7 Rioja TV HLS
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '17 * * * *'
 
 permissions:
   contents: write
@@ -30,26 +30,26 @@ jobs:
       - name: Instalar yt-dlp
         run: python -m pip install --upgrade yt-dlp
 
-      - name: Generar 7 Rioja HLS2 con audio
+      - name: Generar 7 Rioja 720p con audio
         shell: bash
         run: |
           python - <<'PY'
           import json
           import subprocess
           from pathlib import Path
+          from datetime import datetime, timezone
+          from urllib.parse import urlsplit, parse_qs
 
           origen = "https://www.dailymotion.com/video/x8dhao1"
 
-          comando = [
-              "yt-dlp",
-              "--no-config",
-              "--dump-single-json",
-              "--skip-download",
-              origen
-          ]
-
           resultado = subprocess.run(
-              comando,
+              [
+                  "yt-dlp",
+                  "--no-config",
+                  "--dump-single-json",
+                  "--skip-download",
+                  origen
+              ],
               capture_output=True,
               text=True,
               timeout=120
@@ -67,27 +67,38 @@ jobs:
               if f.get("url")
           }
 
-          video = formatos.get("hls-2")
+          video = formatos.get("hls-3")
           audio = formatos.get("hls-group_A2-und")
 
-          if not video:
-              raise RuntimeError("No disponible el video HLS2")
-
-          if not audio:
-              raise RuntimeError("No disponible el audio AAC")
+          if not video or not audio:
+              raise RuntimeError("Faltan pistas HLS 720p o AAC")
 
           url_video = video["url"]
           url_audio = audio["url"]
 
-          ancho = video.get("width") or 848
-          alto = video.get("height") or 477
-          codec = video.get("vcodec") or "avc1.64001e"
+          for nombre, url in [
+              ("video", url_video),
+              ("audio", url_audio)
+          ]:
+              if not url.startswith("https://"):
+                  raise RuntimeError(
+                      f"URL no valida para {nombre}"
+                  )
 
-          bitrate = int((video.get("tbr") or 1360) * 1000)
+              fechas = parse_qs(
+                  urlsplit(url).query
+              ).get("startdate", [])
+
+              print(f"{nombre}: startdate={fechas or 'sin parametro'}")
+
+          ancho = video.get("width") or 1280
+          alto = video.get("height") or 720
+          codec = video.get("vcodec") or "avc1.64001f"
+          bitrate = int((video.get("tbr") or 2179) * 1000)
 
           playlist = (
               "#EXTM3U\n"
-              "#EXT-X-VERSION:6\n"
+              "#EXT-X-VERSION:3\n"
               '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",'
               'NAME="Espanol",LANGUAGE="es",'
               'DEFAULT=YES,AUTOSELECT=YES,'
@@ -105,9 +116,12 @@ jobs:
           )
 
           print("7 RIOJA TV - GENERACION CORRECTA")
-          print(f"Video: {ancho}x{alto} (HLS2)")
+          print(f"Video: {ancho}x{alto}")
           print("Audio: AAC alta calidad")
-          print("Archivo: 7Rioja_master.m3u8")
+          print(
+              "Actualizacion UTC:",
+              datetime.now(timezone.utc).isoformat()
+          )
           PY
 
       - name: Publicar cambios en GitHub
@@ -121,6 +135,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No hay cambios que publicar"
           else
-            git commit -m "Actualizar 7 Rioja TV HLS2"
+            git commit -m "Actualizar 7 Rioja TV 720p"
             git push
           fi
