@@ -79,7 +79,7 @@ jobs:
                   flush=True
               )
 
-          video = formatos.get("hls-3")
+          video = formatos.get("hls-2")
           audio = formatos.get("hls-group_A2-und")
 
           if not video or not audio:
