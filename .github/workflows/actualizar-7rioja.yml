@@ -1,119 +1,83 @@
 
-name: Actualizar 7 Rioja TV
-
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'
-
-permissions:
-  contents: write
-
-jobs:
-  actualizar:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Descargar repositorio
-        uses: actions/checkout@v4
-
-      - name: Instalar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Instalar yt-dlp
-        run: python -m pip install --upgrade yt-dlp
-
       - name: Obtener enlaces y generar M3U8
         shell: bash
         run: |
           python - <<'PY'
+          import json
           import subprocess
           from pathlib import Path
 
           origen = "https://www.dailymotion.com/video/x8dhao1"
 
-          comando = [
-              "yt-dlp",
-              "--no-config",
-              "--verbose",
-              "-F",
-              origen
-          ]
-
           resultado = subprocess.run(
-              comando,
+              [
+                  "yt-dlp",
+                  "--no-config",
+                  "--dump-single-json",
+                  "--skip-download",
+                  origen
+              ],
               capture_output=True,
               text=True,
               check=False,
               timeout=120
           )
-          ("FORMATOS DISPONIBLES EN GITHUB:")
-          print(resultado.stdout, flush=True)
-          print(resultado.stderr, flush=True)
+
           if resultado.returncode != 0:
-              print("ERROR ORIGINAL DE YT-DLP:")
               print(resultado.stderr, flush=True)
-              raise RuntimeError(
-                  f"yt-dlp terminó con código {resultado.returncode}"
-              )
-          urls = [
-              linea.strip()
-              for linea in resultado.stdout.splitlines()
-              if linea.strip().startswith("https://")
-          ]
+              raise RuntimeError("Error al consultar Dailymotion")
 
-          video = next(
-              (url for url in urls if "live-h264-1080.m3u8" in url),
-              None
-          )
+          datos = json.loads(resultado.stdout)
 
-          audio = next(
-              (url for url in urls if "live-aac-128.m3u8" in url),
-              None
-          )
+          formatos = {
+              f["format_id"]: f
+              for f in datos["formats"]
+              if f.get("url")
+          }
 
-          if not video or not audio:
-              raise RuntimeError(
-                  "No se encontraron las pistas de video y audio"
-              )
+          audio = formatos.get("hls-group_A2-und")
 
-          playlist = (
+          if not audio:
+              raise RuntimeError("Audio AAC no disponible")
+
+          video = None
+
+          for calidad in ["hls-4", "hls-3", "hls-2", "hls-1", "hls-0"]:
+              if calidad in formatos:
+                  video = formatos[calidad]
+                  break
+
+          if not video:
+              raise RuntimeError("Video HLS no disponible")
+
+          ancho = video.get("width")
+          alto = video.get("height")
+
+          if not ancho or not alto:
+              raise RuntimeError("Resolucion desconocida")
+
+          codec_video = video.get("vcodec", "avc1.64001e")
+          bitrate = int((video.get("tbr") or 1500) * 1000)
+
+          contenido = (
               "#EXTM3U\n"
               "#EXT-X-VERSION:6\n"
               '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",'
-              'NAME="Espanol",LANGUAGE="es",'
-              'DEFAULT=YES,AUTOSELECT=YES,'
-              f'URI="{audio}"\n'
-              "#EXT-X-STREAM-INF:BANDWIDTH=6500000,"
-              'RESOLUTION=1920x1080,'
-              'CODECS="avc1.640028,mp4a.40.2",'
+              'NAME="Espanol",DEFAULT=YES,AUTOSELECT=YES,'
+              f'URI="{audio["url"]}"\n'
+              f"#EXT-X-STREAM-INF:BANDWIDTH={bitrate + 128000},"
+              f"RESOLUTION={ancho}x{alto},"
+              f'CODECS="{codec_video},mp4a.40.2",'
               'AUDIO="audio"\n'
-              f"{video}\n"
+              f'{video["url"]}\n'
           )
 
           Path("7Rioja_master.m3u8").write_text(
-              playlist,
+              contenido,
               encoding="utf-8"
           )
 
-          print("M3U8 generado correctamente")
-          print("Video 1080p y audio AAC detectados")
+          print(f"Video seleccionado: {ancho}x{alto}")
+          print("Audio AAC seleccionado")
+          print("Archivo M3U8 generado correctamente")
           PY
-
-      - name: Publicar cambios
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add 7Rioja_master.m3u8
-
-          if git diff --cached --quiet; then
-            echo "No hay cambios"
-          else
-            git commit -m "Actualizar enlaces de 7 Rioja TV"
-            git push
-          fi
