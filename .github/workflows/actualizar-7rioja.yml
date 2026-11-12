@@ -67,25 +67,26 @@ jobs:
               if f.get("url")
           }
 
-print("FORMATOS DISPONIBLES EN GITHUB ACTIONS:", flush=True)
 
-for identificador, formato in formatos.items():
-    print(
-        f"ID: {identificador} | "
-        f"Resolucion: {formato.get('width')}x{formato.get('height')} | "
-        f"Video: {formato.get('vcodec')} | "
-        f"Audio: {formato.get('acodec')}",
-        flush=True
-    )
+          print("FORMATOS DISPONIBLES EN GITHUB ACTIONS:", flush=True)
 
-video = formatos.get("hls-3")
-audio = formatos.get("hls-group_A2-und")
+          for identificador, formato in formatos.items():
+              print(
+                  f"ID: {identificador} | "
+                  f"Resolucion: {formato.get('width')}x{formato.get('height')} | "
+                  f"Video: {formato.get('vcodec')} | "
+                  f"Audio: {formato.get('acodec')}",
+                  flush=True
+              )
 
-if not video or not audio:
-    raise RuntimeError(
-        "Faltan pistas HLS 720p o AAC. "
-        "Revisar formatos disponibles arriba."
-    )
+          video = formatos.get("hls-3")
+          audio = formatos.get("hls-group_A2-und")
+
+          if not video or not audio:
+              raise RuntimeError(
+                  "Faltan pistas HLS 720p o AAC. "
+                  "Revisar formatos disponibles arriba."
+              )
 
 
           url_video = video["url"]
